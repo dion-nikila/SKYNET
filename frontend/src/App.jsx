@@ -736,7 +736,7 @@ export default function App() {
           px: { xs: 0.75, sm: 1.8, md: 2.6, xl: 3.2 },
           py: { xs: 0.95, sm: 1.6, md: 1.9 },
           width: '100%',
-          maxWidth: { xs: 'calc(100vw - 10px)', sm: `min(${sk.maxWidth}px, calc(100vw - 20px))` },
+          maxWidth: '100%',
           mx: 'auto',
         }}
       >

@@ -21,7 +21,7 @@ export default function TopBar({ forecastMode, modelInfo, locationName = '' }) {
           px: { xs: 0.9, sm: 1.8, md: 2.6, xl: 3.2 },
           py: { xs: 1.15, sm: 1.95, md: 2.15 },
           width: '100%',
-          maxWidth: { xs: '100%', sm: `min(${sk.maxWidth}px, calc(100vw - 20px))` },
+          maxWidth: '100%',
           mx: 'auto',
           display: 'flex',
           alignItems: 'center',
