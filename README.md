@@ -122,6 +122,9 @@ npm run preview
   - `SKYNET_CORS_ORIGINS=https://<your-frontend-domain>`
   - `SKYNET_SQLITE_PATH=/tmp/skynet_runs.db`
   - `MPLCONFIGDIR=/tmp/mplconfig`
+- Recommended explicit path envs on Render:
+  - `SKYNET_ROOT_DIR=/opt/render/project/src`
+  - `SKYNET_MODEL_META_PATH=/opt/render/project/src/model/xgb_haikou_model_meta.pkl`
 
 ### Frontend deployment (Vercel example)
 - Set project root to `frontend/`

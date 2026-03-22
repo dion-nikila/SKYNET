@@ -13,6 +13,10 @@ services:
         sync: false
       - key: SKYNET_ENABLE_RUN_LOGGING
         value: "1"
+      - key: SKYNET_ROOT_DIR
+        value: /opt/render/project/src
+      - key: SKYNET_MODEL_META_PATH
+        value: /opt/render/project/src/model/xgb_haikou_model_meta.pkl
       - key: SKYNET_SQLITE_PATH
         value: /tmp/skynet_runs.db
       - key: MPLCONFIGDIR
