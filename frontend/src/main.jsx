@@ -1,13 +1,14 @@
 import React from 'react'
 import ReactDOM from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { CssBaseline, ThemeProvider, createTheme } from '@mui/material'
+import { CssBaseline, ThemeProvider } from '@mui/material'
+import { createTheme, responsiveFontSizes } from '@mui/material/styles'
 import App from './App'
 import './styles.css'
 
 const queryClient = new QueryClient()
 
-const theme = createTheme({
+let theme = createTheme({
   palette: {
     mode: 'light',
     primary: { main: '#0d6a94' },
@@ -33,9 +34,24 @@ const theme = createTheme({
     h6: { fontWeight: 800, letterSpacing: '-0.012em' },
     subtitle1: { fontWeight: 800, letterSpacing: '-0.012em', lineHeight: 1.28, color: '#0f3550' },
     subtitle2: { fontWeight: 700, color: '#14384d', lineHeight: 1.32 },
-    body1: { lineHeight: 1.55, color: '#2a4a5f' },
-    body2: { lineHeight: 1.55, color: '#35556b' },
-    caption: { lineHeight: 1.42, color: '#4d6679', fontSize: '0.8125rem' },
+    body1: {
+      lineHeight: 1.55,
+      color: '#2a4a5f',
+      fontSize: '0.97rem',
+      '@media (max-width:600px)': { fontSize: '0.91rem' },
+    },
+    body2: {
+      lineHeight: 1.55,
+      color: '#35556b',
+      fontSize: '0.93rem',
+      '@media (max-width:600px)': { fontSize: '0.88rem' },
+    },
+    caption: {
+      lineHeight: 1.42,
+      color: '#4d6679',
+      fontSize: '0.8rem',
+      '@media (max-width:600px)': { fontSize: '0.74rem' },
+    },
     overline: { fontWeight: 700, letterSpacing: '0.08em', fontSize: '0.68rem' },
     button: { fontWeight: 700, textTransform: 'none', letterSpacing: '0.01em' },
   },
@@ -115,7 +131,11 @@ const theme = createTheme({
         root: {
           borderRadius: 9,
           letterSpacing: '0.01em',
-          minHeight: 35
+          minHeight: 35,
+          '@media (max-width:600px)': {
+            minHeight: 33,
+            fontSize: '0.83rem',
+          },
         },
         sizeSmall: {
           minHeight: 31,
@@ -181,6 +201,12 @@ const theme = createTheme({
           minHeight: 42,
           paddingTop: 6,
           paddingBottom: 6,
+          '@media (max-width:600px)': {
+            minHeight: 36,
+            fontSize: '0.79rem',
+            paddingTop: 4,
+            paddingBottom: 4,
+          },
         }
       }
     },
@@ -223,6 +249,7 @@ const theme = createTheme({
     }
   }
 })
+theme = responsiveFontSizes(theme, { factor: 2.2 })
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

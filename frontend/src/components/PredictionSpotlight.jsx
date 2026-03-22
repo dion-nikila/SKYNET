@@ -141,7 +141,7 @@ function MetricCell({ label, value, subtitle, deltaText = '', delta = 0, divider
             fontWeight: 900,
             lineHeight: 1.02,
             letterSpacing: '-0.02em',
-            fontSize: { xs: '1.84rem', sm: '2.06rem' },
+            fontSize: { xs: '1.54rem', sm: '2.06rem' },
           }}
         >
           {value.toFixed(1)}
@@ -263,7 +263,7 @@ export default function PredictionSpotlight({
                 fontWeight: 900,
                 lineHeight: 1.08,
                 letterSpacing: '-0.02em',
-                fontSize: { xs: '1.46rem', sm: '1.74rem' },
+                fontSize: { xs: '1.22rem', sm: '1.74rem' },
               }}
             >
               Current vs Next-Hour PM2.5
@@ -301,7 +301,7 @@ export default function PredictionSpotlight({
         </Stack>
       </Box>
 
-      <Box sx={{ p: { xs: 1.5, sm: 1.75, md: 1.95 } }}>
+      <Box sx={{ p: { xs: 1.2, sm: 1.75, md: 1.95 } }}>
         {hasScenario ? (
           <Box
             sx={{

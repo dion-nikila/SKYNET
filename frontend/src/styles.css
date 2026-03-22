@@ -21,6 +21,11 @@ html, body, #root {
   min-height: 100%;
 }
 
+html {
+  font-size: 16px;
+  -webkit-text-size-adjust: 100%;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -273,7 +278,17 @@ details[open] > summary::after {
   }
 }
 
+@media (max-width: 900px) {
+  html {
+    font-size: 15px;
+  }
+}
+
 @media (max-width: 600px) {
+  html {
+    font-size: 14px;
+  }
+
   .controls-strip {
     border-radius: 12px;
   }
@@ -298,5 +313,10 @@ details[open] > summary::after {
   .explainability-stage-shell {
     border-radius: 12px;
     padding: 8px 9px;
+  }
+
+  .side-rail-shell {
+    padding: 10px 10px;
+    gap: 8px;
   }
 }

@@ -733,14 +733,14 @@ export default function App() {
 
       <Box
         sx={{
-          px: { xs: 1.1, sm: 1.8, md: 2.6, xl: 3.2 },
-          py: { xs: 1.1, sm: 1.6, md: 1.9 },
+          px: { xs: 0.75, sm: 1.8, md: 2.6, xl: 3.2 },
+          py: { xs: 0.95, sm: 1.6, md: 1.9 },
           width: '100%',
-          maxWidth: `min(${sk.maxWidth}px, calc(100vw - 20px))`,
+          maxWidth: { xs: 'calc(100vw - 10px)', sm: `min(${sk.maxWidth}px, calc(100vw - 20px))` },
           mx: 'auto',
         }}
       >
-        <Stack spacing={{ xs: 1.65, sm: 2.1, md: 2.45 }}>
+        <Stack spacing={{ xs: 1.35, sm: 2.1, md: 2.45 }}>
           <ForecastControlsPanel
             location={location}
             onLocationNameChange={(name) => setLocation((s) => ({ ...s, name }))}
@@ -904,7 +904,7 @@ export default function App() {
                         minHeight: 38,
                         borderRadius: 1,
                         fontWeight: 600,
-                        fontSize: '0.875rem',
+                        fontSize: { xs: '0.79rem', sm: '0.875rem' },
                       },
                       '& .Mui-selected': {
                         color: 'primary.dark',
