@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Virtualenv / local tooling
+.venv/
+.cache/
+.mplconfig/
+
+# Node / frontend build
+frontend/node_modules/
+frontend/dist/
+frontend/.env
+backend/.env
+
+# Local runtime/state
+backend/skynet_runs.db
+backend/*.db
+backend/scripts/validation_artifacts*/
+backend/scripts/artifacts*/
+model/*.bak_*
+
+# OS/editor
+.DS_Store
+.idea/
+.vscode/
+
+# Deployment-irrelevant archive/sample bundles in this repo
+SKYNET SAMPLE/
+SKYNET SAMPLE 2/
+SKYNET_sample/
+SKYNET_supervisor_code_and_data_2026-03-10/
+SKYNET_supervisor_package_2026-03-10/
+SKYNET_supervisor_exact_used_files_2026-03-10/
+SKYNET_supervisor_exact_used_files_sample_data_2026-03-10/
+*.zip

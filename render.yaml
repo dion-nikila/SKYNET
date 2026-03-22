@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: skynet-backend
+    env: python
+    plan: free
+    buildCommand: pip install -r backend/requirements.txt
+    startCommand: uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /readyz
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"
+      - key: SKYNET_CORS_ORIGINS
+        sync: false
+      - key: SKYNET_ENABLE_RUN_LOGGING
+        value: "1"
+      - key: SKYNET_SQLITE_PATH
+        value: /tmp/skynet_runs.db
+      - key: MPLCONFIGDIR
+        value: /tmp/mplconfig

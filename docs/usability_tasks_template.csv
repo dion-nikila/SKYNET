@@ -1,0 +1,7 @@
+participant_id,task_id,task_prompt,completed,time_seconds,errors_count,help_requested,observer_notes
+P01,T1,Run baseline forecast for default location,,,,,
+P01,T2,Apply a macro scenario and describe PM2.5 change direction,,,,,
+P01,T3,Create a guided intervention with two rows and run it,,,,,
+P01,T4,Switch to Custom What-If and set NO2 plus PM10 overrides then run,,,,,
+P01,T5,Explain the difference between reliability guidance and uncertainty bands,,,,,
+P01,T6,Export the current run to CSV or print report,,,,,

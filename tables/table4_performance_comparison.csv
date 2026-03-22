@@ -1,0 +1,5 @@
+Model,MAE,RMSE,R²
+Persistence baseline,0.834,1.576,0.914
+Linear Regression,0.862,1.447,0.927
+Random Forest Regressor,0.776,1.27,0.944
+XGBoost / SKYNET,0.739,1.247,0.946

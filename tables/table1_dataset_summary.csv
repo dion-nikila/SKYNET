@@ -1,0 +1,12 @@
+Variable,Unit,Unit_basis,Dataset_stage,Rows_raw,Rows_used,Malformed_rows_dropped,Missing_pct,Mean,Std,Median,Q01,Q99,Min,Max,Anomaly_note
+PM2.5,ug/m^3,source-documented,Airware-Haikou/2_filled_data (interpolated filled stage),480001,480000,1,0.0,11.129,10.208,9.0,2.056,39.0,0.1,277.975,
+PM10,ug/m^3,source-documented,Airware-Haikou/2_filled_data (interpolated filled stage),480001,480000,1,0.0,23.578,15.972,20.0,4.0,72.137,0.1,308.868,
+NO2,ug/m^3,source-documented,Airware-Haikou/2_filled_data (interpolated filled stage),480001,480000,1,0.0,8.55,3.636,7.909,3.0,20.103,2.0,33.447,
+SO2,ug/m^3,source-documented,Airware-Haikou/2_filled_data (interpolated filled stage),480001,480000,1,0.0,9.997,5.248,11.0,2.0,19.0,0.207,112.582,
+O3,ug/m^3,source-documented,Airware-Haikou/2_filled_data (interpolated filled stage),480001,480000,1,0.0,59.613,21.621,56.437,16.0,116.443,0.758,167.0,
+CO,mg/m^3-equivalent,inferred-from-range,Airware-Haikou/2_filled_data (interpolated filled stage),480001,480000,1,0.0,0.608,1.742,0.5,0.236,1.7,0.074,57.785,Localized spike tail present (max=57.785); use robust quantiles for discussion.
+temperature,degC,source-documented,Airware-Haikou/2_filled_data (interpolated filled stage),480001,480000,1,0.0,29.486,5.67,29.658,18.4,42.027,0.205,43.772,
+humidity,%,source-documented,Airware-Haikou/2_filled_data (interpolated filled stage),480001,480000,1,0.0,59.595,12.029,60.832,32.259,81.603,0.1,88.279,
+pressure,kPa-equivalent,inferred-from-range,Airware-Haikou/2_filled_data (interpolated filled stage),480001,480000,1,0.0,100.964,1.627,100.921,99.74,102.47,47.496,110.0,"Contains localized anomaly tail (min=47.496, max=110.000); likely station-level artifact."
+wind_speed,m/s-equivalent,inferred-from-range,Airware-Haikou/2_filled_data (interpolated filled stage),480001,480000,1,0.0,1.032,0.52,0.938,0.26,2.591,0.183,3.512,
+wind_direction,degrees,source-documented,Airware-Haikou/2_filled_data (interpolated filled stage),480001,480000,1,0.0,159.304,74.239,144.0,30.5,340.5,7.0,358.066,

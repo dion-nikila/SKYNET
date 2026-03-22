@@ -1,0 +1,5 @@
+Metric,Improvement
+MAE reduction vs persistence (%),11.391
+RMSE reduction vs persistence (%),20.876
+R² absolute gain vs persistence,0.032
+R² relative gain vs persistence (%),3.501
