@@ -147,7 +147,7 @@ test('export semantics separate manual custom, guided intervention, and macro ru
   })
   assert.equal(guided.scenario_mode, 'guided_intervention')
   assert.equal(guided.scenario_intensity, 70)
-  assert.match(guided.scenario_intensity_note, /fixed baseline calibration intensity/i)
+  assert.match(guided.scenario_intensity_note, /fixed baseline intensity/i)
 
   const macro = buildForecastExportRecord({
     ...base,

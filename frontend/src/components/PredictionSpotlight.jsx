@@ -334,7 +334,7 @@ export default function PredictionSpotlight({
               {!isCustomScenario ? (
                 <Typography variant="caption" sx={{ color: '#4a627a', fontWeight: 700 }}>
                   {isGuidedIntervention
-                    ? `Guided intervention · calibrated intensity ${scenarioIntensity.toFixed(0)}/100`
+                    ? `Guided intervention · fixed intensity ${scenarioIntensity.toFixed(0)}/100`
                     : `Scenario intensity ${scenarioIntensity.toFixed(0)}/100`}
                 </Typography>
               ) : null}
@@ -400,7 +400,7 @@ export default function PredictionSpotlight({
                   subtitle={isCustomScenario
                     ? 'Manual custom what-if result'
                     : isGuidedIntervention
-                      ? `Guided intervention · calibrated intensity ${scenarioIntensity.toFixed(0)}/100`
+                      ? `Guided intervention · fixed intensity ${scenarioIntensity.toFixed(0)}/100`
                       : `${scenarioTitle} · intensity ${scenarioIntensity.toFixed(0)}/100`}
                   statusLabel={`${scenarioLevel.audienceLabel} (${scenarioLevel.band})`}
                   statusTone={scenarioLevel.tone}

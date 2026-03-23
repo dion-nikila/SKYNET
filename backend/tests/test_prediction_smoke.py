@@ -1163,6 +1163,27 @@ class PredictionSmokeTests(unittest.TestCase):
                 }
             )
 
+    def test_guided_intervention_rejects_duplicate_categories(self):
+        with self.assertRaises(ValidationError) as ctx:
+            InteractiveForecastRequest.model_validate(
+                {
+                    "request_id": "guided-duplicate-categories",
+                    "forecast_mode": "live",
+                    "location": {"lat": 6.9271, "lon": 79.8612, "name": "Colombo"},
+                    "time": {"mode": "now"},
+                    "scenario": {
+                        "type": "custom",
+                        "intensity": 70,
+                        "items": [
+                            {"category": "wind", "direction": "increase", "magnitude": "small"},
+                            {"category": "wind", "direction": "decrease", "magnitude": "large"},
+                        ],
+                    },
+                    "options": {"history_hours_target": 72, "top_k_drivers": 6, "ood": {"soft_q": 0.05, "hard_q": 0.01}},
+                }
+            )
+        self.assertIn("must not contain duplicate categories", str(ctx.exception))
+
     def test_location_validation_rejects_out_of_range_coordinates(self):
         with self.assertRaises(ValidationError):
             InteractiveForecastRequest.model_validate(

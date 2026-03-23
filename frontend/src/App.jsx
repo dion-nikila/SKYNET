@@ -718,7 +718,7 @@ export default function App() {
       ? scenarioMode === 'manual_custom'
         ? `${labelScenario('custom_what_if')} (manual custom overrides)`
         : scenarioMode === 'guided_intervention'
-          ? `${labelScenario('guided_intervention')} (guided mode, calibrated intensity ${result.scenario.intensity})`
+          ? `${labelScenario('guided_intervention')} (guided mode, fixed intensity ${result.scenario.intensity})`
           : `${labelScenario(result.scenario.scenario_id)} (intensity ${result.scenario.intensity})`
       : 'Baseline forecast'
     : 'No run yet'

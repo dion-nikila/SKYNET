@@ -371,7 +371,7 @@ export default function ScenarioPanel({ scenarios, loading, onApply, canRunForec
               Choose one row per category for cleaner interpretability. Strength controls are the main tuning signal.
             </Typography>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.2 }}>
-              Guided mode uses a fixed calibration baseline intensity ({GUIDED_BASE_INTENSITY}/100) so row-level choices remain comparable across runs.
+              Guided mode uses a fixed baseline intensity ({GUIDED_BASE_INTENSITY}/100) so row-level choices remain comparable across runs.
             </Typography>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1.2 }}>
               For direct variable-by-variable edits with baseline anchoring, use <strong>Forecast mode → Custom What-If</strong> in the setup panel.

@@ -2,6 +2,7 @@ from typing import Any, Dict, List, Optional, Literal
 import math
 from pydantic import BaseModel, Field
 from pydantic import field_validator
+from pydantic import model_validator
 
 
 class Location(BaseModel):
@@ -45,6 +46,17 @@ class ScenarioRequest(BaseModel):
     scenario_id: Optional[str] = None
     intensity: int = Field(default=50, ge=0, le=100)
     items: Optional[List[CustomScenarioItem]] = None
+
+    @model_validator(mode="after")
+    def _validate_guided_items(self):
+        # Guided interventions use type="custom" + items; enforce one row per
+        # category so crafted payloads cannot stack duplicate category effects.
+        if self.type != "custom" or not self.items:
+            return self
+        categories = [str(item.category) for item in self.items]
+        if len(set(categories)) != len(categories):
+            raise ValueError("Guided interventions must not contain duplicate categories.")
+        return self
 
 
 class CustomWhatIfOverrides(BaseModel):

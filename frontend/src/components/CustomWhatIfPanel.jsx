@@ -252,7 +252,7 @@ export default function CustomWhatIfPanel({
             {runImpactPreview ? (
               <Alert severity={previewTone(runImpactPreview.level).severity} sx={{ mb: 1 }}>
                 <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                  Last run calibrated preview: {String(runImpactPreview.level || 'low').toUpperCase()}
+                  Last run impact preview: {String(runImpactPreview.level || 'low').toUpperCase()}
                 </Typography>
                 <Typography variant="caption" sx={{ display: 'block', mt: 0.3 }}>
                   {runImpactPreview.note || 'Estimated from actual applied override magnitudes and model leverage.'}

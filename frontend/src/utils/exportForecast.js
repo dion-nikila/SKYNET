@@ -116,7 +116,7 @@ export function buildForecastExportRecord(result) {
     : labelScenario(scenario.scenario_id || '')
   const includeIntensity = scenarioMode === 'macro' || scenarioMode === 'guided_intervention'
   const scenarioIntensityNote = scenarioMode === 'guided_intervention'
-    ? 'Guided mode uses a fixed baseline calibration intensity; per-row strength choices are the primary control.'
+    ? 'Guided mode uses a fixed baseline intensity; per-row strength choices are the primary control.'
     : ''
 
   return {
@@ -236,7 +236,7 @@ function buildForecastReportHtml(result) {
   const scenarioDetail = row.scenario_mode === 'manual_custom'
     ? `${row.scenario_label || row.scenario_id} (manual custom overrides)`
     : row.scenario_mode === 'guided_intervention'
-      ? `${row.scenario_label || row.scenario_id} (guided intervention, calibrated intensity ${row.scenario_intensity})`
+      ? `${row.scenario_label || row.scenario_id} (guided intervention, fixed intensity ${row.scenario_intensity})`
       : row.scenario_mode === 'baseline'
         ? `${row.scenario_label || row.scenario_id} (baseline forecast)`
         : `${row.scenario_label || row.scenario_id} (intensity ${row.scenario_intensity})`
