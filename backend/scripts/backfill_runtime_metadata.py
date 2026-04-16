@@ -30,10 +30,31 @@ def _root_dir() -> Path:
     return Path(__file__).resolve().parents[2]
 
 
-def _load_dataset(data_dir: Path) -> pd.DataFrame:
-    files = sorted(glob.glob(str(data_dir / "*.csv")))
+def _default_data_path() -> Path:
+    root = _root_dir()
+    candidates = [
+        root / "data" / "processed" / "final_dataset" / "final.csv",
+        root / "data" / "processed" / "final_dataset",
+        root / "data" / "processed" / "raw_cleaned_audit" / "cleaned_station_files",
+    ]
+    for c in candidates:
+        if c.is_file() or c.is_dir():
+            return c
+    return candidates[0]
+
+
+def _load_dataset(data_path: Path) -> pd.DataFrame:
+    if data_path.is_file():
+        if data_path.suffix.lower() != ".csv":
+            raise FileNotFoundError(f"Input data file is not CSV: {data_path}")
+        files = [str(data_path)]
+    elif data_path.is_dir():
+        files = sorted(glob.glob(str(data_path / "*.csv")))
+    else:
+        raise FileNotFoundError(f"Input data path not found: {data_path}")
+
     if not files:
-        raise FileNotFoundError(f"No CSV files found in {data_dir}")
+        raise FileNotFoundError(f"No CSV files found in {data_path}")
 
     frames = []
     for p in files:
@@ -186,7 +207,7 @@ def _load_booster(meta: Dict, meta_path: Path) -> xgb.Booster:
 def main():
     parser = argparse.ArgumentParser(description="Backfill runtime metadata with feature_quantiles and global_shap_mean_abs.")
     parser.add_argument("--model-meta", default=str(_root_dir() / "model" / "xgb_haikou_model_meta.pkl"))
-    parser.add_argument("--data-dir", default=str(_root_dir() / "data" / "Airware-Haikou" / "2_filled_data"))
+    parser.add_argument("--data-dir", default=str(_default_data_path()))
     parser.add_argument("--max-shap-rows", type=int, default=3000)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--dry-run", action="store_true")

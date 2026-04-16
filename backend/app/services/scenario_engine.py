@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import Dict, List, Set
 
 import numpy as np
 import pandas as pd
@@ -124,8 +124,30 @@ STRICT_QUANTILE_FEATURES = set(CUSTOM_OVERRIDE_FEATURES) | {
     for knob in cfg.get("knobs", [])
 }
 
+DERIVED_EXOGENOUS_FEATURES = {
+    "PM10": {"lag1": "PM10_lag1", "roll3": "PM10_roll3", "roll24": "PM10_roll24", "lag3": "PM10_lag3"},
+    "humidity": {"lag1": "humidity_lag1", "roll3": "humidity_roll3", "roll24": "humidity_roll24"},
+    "wind_speed": {"lag1": "wind_speed_lag1", "roll3": "wind_speed_roll3", "roll24": "wind_speed_roll24"},
+    "pressure": {"lag1": "pressure_lag1", "roll3": "pressure_roll3", "roll24": "pressure_roll24"},
+    "temperature": {"lag1": "temperature_lag1"},
+}
+
+INTERACTION_FEATURE_RECIPES = {
+    "int_windspeedlag1_pm10lag1": ("wind_speed_lag1", "PM10_lag1"),
+    "int_humiditylag1_temperaturelag1": ("humidity_lag1", "temperature_lag1"),
+    "int_pressurelag1_windspeedlag1": ("pressure_lag1", "wind_speed_lag1"),
+}
+
 
 class ScenarioEngine:
+    @staticmethod
+    def _safe_float(v):
+        try:
+            out = float(v)
+        except Exception:
+            return np.nan
+        return out if np.isfinite(out) else np.nan
+
     def list_cards(self):
         cards = []
         for sid, cfg in MACRO_SCENARIOS.items():
@@ -400,6 +422,65 @@ class ScenarioEngine:
             clamped = float(np.clip(raw_target, bounds["soft_low"], bounds["soft_high"]))
         return clamped, raw_target, soft_exceeded, hard_exceeded, bool(direction_limited)
 
+    def _sync_derived_features(
+        self,
+        scenario_X: pd.DataFrame,
+        baseline_X: pd.DataFrame,
+        changed_features: Set[str],
+    ) -> pd.DataFrame:
+        """
+        Keep derived lag/rolling/interaction features consistent after manual exogenous edits.
+        This is row-local and uses only baseline row values plus user edits (no future data).
+        """
+        if scenario_X.empty or baseline_X.empty or not changed_features:
+            return scenario_X
+
+        idx = scenario_X.index[0]
+        base_row = baseline_X.iloc[0]
+
+        for feature in sorted(set(changed_features)):
+            spec = DERIVED_EXOGENOUS_FEATURES.get(str(feature))
+            if not spec:
+                continue
+
+            old_now = self._safe_float(base_row.get(feature, np.nan))
+            new_now = self._safe_float(scenario_X.iloc[0].get(feature, np.nan))
+            if not np.isfinite(new_now):
+                continue
+
+            lag1_col = spec.get("lag1")
+            if lag1_col and lag1_col in scenario_X.columns:
+                scenario_X.loc[idx, lag1_col] = float(new_now)
+
+            for roll_col, window in ((spec.get("roll3"), 3.0), (spec.get("roll24"), 24.0)):
+                if not roll_col or roll_col not in scenario_X.columns:
+                    continue
+                old_roll = self._safe_float(base_row.get(roll_col, np.nan))
+                if np.isfinite(old_roll) and np.isfinite(old_now):
+                    scenario_X.loc[idx, roll_col] = float(old_roll + ((new_now - old_now) / window))
+                else:
+                    scenario_X.loc[idx, roll_col] = float(new_now)
+
+        # Recompute interaction features only if model uses them.
+        for interaction_feature, (left_col, right_col) in INTERACTION_FEATURE_RECIPES.items():
+            if interaction_feature not in scenario_X.columns:
+                continue
+
+            left_val = self._safe_float(scenario_X.iloc[0].get(left_col, np.nan))
+            right_val = self._safe_float(scenario_X.iloc[0].get(right_col, np.nan))
+
+            if not np.isfinite(left_val):
+                left_base = left_col.replace("_lag1", "")
+                left_val = self._safe_float(scenario_X.iloc[0].get(left_base, np.nan))
+            if not np.isfinite(right_val):
+                right_base = right_col.replace("_lag1", "")
+                right_val = self._safe_float(scenario_X.iloc[0].get(right_base, np.nan))
+
+            if np.isfinite(left_val) and np.isfinite(right_val):
+                scenario_X.loc[idx, interaction_feature] = float(left_val * right_val)
+
+        return scenario_X
+
     def apply(self, scenario, baseline_X: pd.DataFrame, meta: Dict, ood_opts: Dict | None = None, return_context: bool = False):
         ood_cfg = self._normalize_ood_opts(ood_opts)
         ood_notes: List[str] = list(ood_cfg.get("notes", []))
@@ -409,6 +490,7 @@ class ScenarioEngine:
         scenario_X = baseline_X.copy()
         applied = []
         ood_events = []
+        changed_features: Set[str] = set()
 
         knobs = []
         scenario_id = scenario.scenario_id or "custom"
@@ -457,6 +539,8 @@ class ScenarioEngine:
             )
 
             scenario_X.loc[scenario_X.index[0], feature] = float(target)
+            if not np.isclose(current, target):
+                changed_features.add(str(feature))
             clamped = not np.isclose(raw_target, target)
             effective_direction = self._movement_direction(current, target)
             requested_direction = str(knob["direction"])
@@ -517,6 +601,12 @@ class ScenarioEngine:
                     }
                 )
 
+        scenario_X = self._sync_derived_features(
+            scenario_X=scenario_X,
+            baseline_X=baseline_X,
+            changed_features=changed_features,
+        )
+
         effective_soft_q = float(min(effective_soft_levels)) if effective_soft_levels else 0.05
         effective_hard_q = float(min(effective_hard_levels)) if effective_hard_levels else 0.01
         if effective_hard_q > effective_soft_q:
@@ -554,6 +644,7 @@ class ScenarioEngine:
         effective_soft_levels: List[float] = []
         effective_hard_levels: List[float] = []
         preview_rows: List[Dict] = []
+        changed_features: Set[str] = set()
 
         for feature, raw_target_in in (overrides or {}).items():
             if feature not in CUSTOM_OVERRIDE_FEATURES:
@@ -614,6 +705,8 @@ class ScenarioEngine:
                 was_clamped = True
 
             scenario_X.loc[scenario_X.index[0], feature] = float(clamped)
+            if not np.isclose(current, clamped):
+                changed_features.add(str(feature))
 
             soft_low_label = self._quantile_label(bounds["q_soft"])
             soft_high_label = self._quantile_label(1.0 - bounds["q_soft"])
@@ -682,6 +775,12 @@ class ScenarioEngine:
                         "severity": severity,
                     }
                 )
+
+        scenario_X = self._sync_derived_features(
+            scenario_X=scenario_X,
+            baseline_X=baseline_X,
+            changed_features=changed_features,
+        )
 
         effective_soft_q = float(min(effective_soft_levels)) if effective_soft_levels else float(ood_cfg["requested_soft_q"])
         effective_hard_q = float(min(effective_hard_levels)) if effective_hard_levels else float(ood_cfg["requested_hard_q"])

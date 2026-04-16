@@ -2,7 +2,6 @@ pandas
 numpy
 requests
 xgboost
-optuna
 joblib
 scikit-learn
 matplotlib

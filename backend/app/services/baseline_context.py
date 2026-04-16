@@ -88,8 +88,23 @@ class BaselineContextService:
         if self._reference_profile is not None:
             return self._reference_profile.copy()
 
-        data_dir = settings.ROOT_DIR / "data" / "Airware-Haikou" / "2_filled_data"
-        csv_files = sorted(glob.glob(str(data_dir / "*.csv")))
+        candidate_sources = [
+            settings.ROOT_DIR / "data" / "processed" / "final_dataset" / "final.csv",
+            settings.ROOT_DIR / "data" / "processed" / "final_dataset",
+            settings.ROOT_DIR / "data" / "processed" / "raw_cleaned_audit" / "cleaned_station_files",
+        ]
+
+        csv_files: List[str] = []
+        for source in candidate_sources:
+            if source.is_file() and source.suffix.lower() == ".csv":
+                csv_files = [str(source)]
+                break
+            if source.is_dir():
+                files = sorted(glob.glob(str(source / "*.csv")))
+                if files:
+                    csv_files = files
+                    break
+
         if not csv_files:
             return None
 
@@ -233,7 +248,7 @@ class BaselineContextService:
                         w_cur=w_cur,
                         source="live_api",
                         live_data_used=True,
-                    notes=["Using recent cached live baseline context."],
+                        notes=["Using recent cached live baseline context."],
                     )
 
             # Keep custom-mode fallback responsive: use per-call probe settings

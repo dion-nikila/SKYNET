@@ -23,12 +23,34 @@ INTENSITIES_DEFAULT = [0, 10, 25, 50, 75, 100]
 
 
 def _find_data_path() -> str:
-    c1 = os.path.join("data", "Airware-Haikou", "2_filled_data")
-    c2 = os.path.join("Airware-Haikou", "2_filled_data")
-    for c in (c1, c2):
-        if os.path.isdir(c):
+    candidates = [
+        os.path.join("data", "processed", "final_dataset", "final.csv"),
+        os.path.join("data", "processed", "final_dataset"),
+        os.path.join("data", "processed", "raw_cleaned_audit", "cleaned_station_files"),
+    ]
+    for c in candidates:
+        if os.path.isfile(c) or os.path.isdir(c):
             return c
-    raise FileNotFoundError("Dataset path not found. Expected data/Airware-Haikou/2_filled_data")
+    raise FileNotFoundError(
+        "Dataset path not found. Expected final dataset or cleaned raw output."
+    )
+
+
+def _resolve_input_csv_files(data_path: str) -> list[str]:
+    if os.path.isfile(data_path):
+        if str(data_path).lower().endswith(".csv"):
+            return [data_path]
+        raise RuntimeError(f"Input path is a file but not CSV: {data_path}")
+    if os.path.isdir(data_path):
+        return sorted(glob.glob(os.path.join(data_path, "*.csv")))
+    raise RuntimeError(f"Input data path does not exist: {data_path}")
+
+
+def _read_csv_robust(path: str) -> pd.DataFrame:
+    try:
+        return pd.read_csv(path, on_bad_lines="skip")
+    except TypeError:
+        return pd.read_csv(path)
 
 
 def _generate_features_like_model(data: pd.DataFrame, clip_stats: tuple[float, float], aux_fill: dict, training_mode: bool) -> pd.DataFrame:
@@ -83,11 +105,11 @@ def _generate_features_like_model(data: pd.DataFrame, clip_stats: tuple[float, f
 def _load_eval_sample(meta: dict, sample_size: int, random_state: int):
     features = list(meta.get("features", []))
     data_path = _find_data_path()
-    csv_files = sorted(glob.glob(os.path.join(data_path, "*.csv")))
+    csv_files = _resolve_input_csv_files(data_path)
     if not csv_files:
         raise RuntimeError(f"No CSV files found in {data_path}")
 
-    df = pd.concat((pd.read_csv(p) for p in csv_files), ignore_index=True)
+    df = pd.concat((_read_csv_robust(p) for p in csv_files), ignore_index=True)
     df["datetime"] = pd.to_datetime(df["hours"], errors="coerce")
     df = df[~df["datetime"].isna()].copy()
     if "station_ID" not in df.columns:

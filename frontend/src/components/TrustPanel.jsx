@@ -203,6 +203,12 @@ function describeExtremeEvent(event) {
   const q01 = safeNumber(event?.q01)
   const q99 = safeNumber(event?.q99)
   const side = String(event?.side || '')
+  if (side === 'suspicious_zero') {
+    if (Number.isFinite(Number(event?.q01)) && Number.isFinite(Number(event?.q99))) {
+      return `${feature}: ${value.toFixed(2)} (suspicious zero; typical lag1 q01-q99 ${q01.toFixed(2)} to ${q99.toFixed(2)})`
+    }
+    return `${feature}: ${value.toFixed(2)} (suspicious zero in current baseline context)`
+  }
   const sideText = side === 'above_q99' ? 'above q99' : side === 'below_q01' ? 'below q01' : 'outside q01-q99'
   return `${feature}: ${value.toFixed(2)} (${sideText}; q01-q99 ${q01.toFixed(2)} to ${q99.toFixed(2)})`
 }
@@ -262,6 +268,14 @@ const subtleAlertSx = {
   border: 'none',
   bgcolor: 'rgba(13, 106, 148, 0.06)',
   '& .MuiAlert-message': { py: 0.15, width: '100%', minWidth: 0 },
+}
+
+function baselineSourceLabel(meta) {
+  const source = String(meta?.baseline_source || '').trim().toLowerCase()
+  if (source === 'live_api') return 'live API baseline'
+  if (source === 'reference_profile') return 'reference dataset baseline'
+  if (source === 'demo_default') return 'demo default baseline'
+  return source || 'fallback baseline'
 }
 
 export default function TrustPanel({ health, meta = null, scenario = null }) {
@@ -325,6 +339,10 @@ export default function TrustPanel({ health, meta = null, scenario = null }) {
   const extremeEvents = Array.isArray(extremeInputs?.events) ? extremeInputs.events : []
   const oodEvents = Array.isArray(ood?.features_exceeded) ? ood.features_exceeded : []
   const liveUsed = Boolean(meta?.live_data_used)
+  const uncertaintyAvailable = Boolean(uncertaintyBlock?.available)
+  const uncertaintyNote = String(uncertaintyBlock?.note || '').trim()
+  const sourceLabel = baselineSourceLabel(meta)
+  const baselineTimestamp = String(meta?.baseline_timestamp || '').trim()
 
   return (
     <Box sx={panelRootSx}>
@@ -365,7 +383,20 @@ export default function TrustPanel({ health, meta = null, scenario = null }) {
             Why high score can still include caution: the score is a weighted mix; localized trigger checks can still flag caution even when most weighted components remain strong.
           </Typography>
         ) : null}
+        {!liveUsed ? (
+          <Typography variant="caption" sx={{ display: 'block', mt: 0.35, color: '#2d4a5e', lineHeight: 1.42 }}>
+            Non-live qualifier: this score still reflects run-quality checks, but the baseline context came from {sourceLabel}{baselineTimestamp ? ` at ${baselineTimestamp}` : ''}. Interpret absolute level more cautiously than a live observed run.
+          </Typography>
+        ) : null}
       </Alert>
+
+      {!uncertaintyAvailable && uncertaintyNote ? (
+        <Alert severity="info" sx={{ mt: 0.65, ...subtleAlertSx }}>
+          <Typography variant="body2" sx={{ color: sk.ink.body, fontWeight: 600, lineHeight: 1.5 }}>
+            {uncertaintyNote}
+          </Typography>
+        </Alert>
+      ) : null}
 
       <Accordion
         disableGutters
@@ -508,7 +539,7 @@ export default function TrustPanel({ health, meta = null, scenario = null }) {
 
           {!liveUsed ? (
             <Typography variant="caption" sx={{ display: 'block', mb: 0.35, color: '#2d4a5e', wordBreak: 'break-word' }}>
-              Live data unavailable: baseline source was {String(meta?.baseline_source || 'fallback context')}.
+              Live data unavailable: baseline source was {sourceLabel}{baselineTimestamp ? ` at ${baselineTimestamp}` : ''}.
             </Typography>
           ) : null}
 
@@ -571,6 +602,14 @@ export default function TrustPanel({ health, meta = null, scenario = null }) {
                 {String(uncertaintyBlock.note || '')}
               </Typography>
             </Box>
+          ) : null}
+
+          {!Array.isArray(uncertaintyBlock?.baseline_bands) || !uncertaintyBlock.baseline_bands.length ? (
+            uncertaintyNote ? (
+              <Typography variant="caption" sx={{ display: 'block', mt: 0.45, color: '#2d4a5e', lineHeight: 1.42 }}>
+                Uncertainty status: {uncertaintyNote}
+              </Typography>
+            ) : null
           ) : null}
 
           <Alert severity="info" sx={{ ...subtleAlertSx, mt: 0.75 }}>

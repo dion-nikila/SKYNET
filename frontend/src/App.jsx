@@ -429,6 +429,7 @@ export default function App() {
   const scenariosQuery = useQuery({ queryKey: ['scenarios'], queryFn: getScenarios })
   const locationsQuery = useQuery({ queryKey: ['locations'], queryFn: getLocations })
   const modelInfoQuery = useQuery({ queryKey: ['model-info'], queryFn: getModelInfo })
+  const isModelExplicitlyNotReady = modelInfoQuery.data?.model_ready === false
   const customImpactPreviewEstimate = useMemo(
     () => estimateCustomImpactPreview(customOverridesPayload, customImpactMode, modelInfoQuery.data),
     [customOverridesPayload, customImpactMode, modelInfoQuery.data]
@@ -458,6 +459,11 @@ export default function App() {
   })
 
   const bootstrapRef = useRef(false)
+  const guardModelReady = () => {
+    if (!isModelExplicitlyNotReady) return true
+    setErrorMsg('Model runtime is not ready yet. Wait for backend artifacts/readiness to recover before running forecasts.')
+    return false
+  }
 
   useEffect(() => {
     if (!useManualLocation) return
@@ -490,6 +496,7 @@ export default function App() {
   }, [localRuns])
 
   const applyScenario = (scenario) => {
+    if (!guardModelReady()) return
     if (!coordinatesValid) {
       setErrorMsg('Enter valid latitude and longitude before running forecast scenarios.')
       return
@@ -542,6 +549,7 @@ export default function App() {
   }
 
   const runCustomWhatIf = ({ allowEmpty = false } = {}) => {
+    if (!guardModelReady()) return
     if (!coordinatesValid) {
       setErrorMsg('Enter valid latitude and longitude before running custom what-if forecasts.')
       return
@@ -592,11 +600,12 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (!bootstrapRef.current && scenariosQuery.data?.length && forecastMode === 'live') {
-      bootstrapRef.current = true
-      runBaseline()
-    }
-  }, [scenariosQuery.data, forecastMode])
+    if (bootstrapRef.current || !scenariosQuery.data?.length || forecastMode !== 'live') return
+    if (!modelInfoQuery.isError && !modelInfoQuery.isSuccess) return
+    if (isModelExplicitlyNotReady) return
+    bootstrapRef.current = true
+    runBaseline()
+  }, [scenariosQuery.data, forecastMode, modelInfoQuery.isError, modelInfoQuery.isSuccess, isModelExplicitlyNotReady])
 
   const loadRun = (runId) => {
     setLoadingRunId(runId)
@@ -825,6 +834,12 @@ export default function App() {
                 }
               >
                 Model metadata failed to load. Forecast runs can still execute, but model-information details are currently limited.
+              </Alert>
+            ) : null}
+
+            {!modelInfoQuery.isError && isModelExplicitlyNotReady ? (
+              <Alert severity="error">
+                Model runtime is not ready yet. Automatic forecast startup is blocked until backend artifacts and readiness checks recover.
               </Alert>
             ) : null}
 

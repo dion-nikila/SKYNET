@@ -82,7 +82,7 @@ def _normalize_custom_overrides_for_model(overrides: Dict[str, Any]) -> tuple[Di
     Normalize user-facing custom override payload into model feature representation.
 
     Current user contract keeps pressure in hPa for readability; model features use
-    kPa-equivalent pressure values learned from 2_filled_data.
+    the kPa-equivalent pressure representation used by the active final model metadata.
     """
     out = dict(overrides or {})
     pressure_converted = False
@@ -300,7 +300,7 @@ def forecast_interactive(req: InteractiveForecastRequest):
                 "Model was trained on Haikou-stage data; non-Haikou runs are exploratory and not externally validated."
             )
     else:
-        # Manual coordinates are allowed for demo exploration; keep domain caveat explicit.
+        # Manual coordinates are allowed for demo exploration.
         mode_notes.append(
             "Model was trained on Haikou-stage data; manual-coordinate runs are exploratory and not externally validated."
         )
@@ -517,6 +517,12 @@ def forecast_interactive(req: InteractiveForecastRequest):
 
     request_id = req.request_id or str(uuid4())
     generated_at = datetime.now(timezone.utc).astimezone().isoformat()
+    baseline_timestamp = None
+    try:
+        if getattr(feat, "observed_timestamp", None) is not None:
+            baseline_timestamp = feat.observed_timestamp.isoformat()
+    except Exception:
+        baseline_timestamp = None
 
     baseline_block = _model_validate(
         BaselineResponse,
@@ -639,6 +645,7 @@ def forecast_interactive(req: InteractiveForecastRequest):
             "forecast_mode": forecast_mode,
             "custom_impact_mode": resolved_impact_mode if forecast_mode == "custom" else None,
             "baseline_source": baseline_source,
+            "baseline_timestamp": baseline_timestamp,
             "live_data_used": bool(live_data_used),
             "overrides_applied": bool(len(applied_overrides) > 0),
             "mode_note": " ".join([n for n in mode_notes if n]).strip() or None,

@@ -1,4 +1,5 @@
 export const FEATURE_LABELS = {
+  'PM2.5_current': 'Current PM2.5',
   lag1: 'PM2.5 one hour ago',
   lag3: 'PM2.5 three hours ago',
   lag6: 'PM2.5 six hours ago',

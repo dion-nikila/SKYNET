@@ -93,6 +93,23 @@ function scenarioRunMode(meta, scenario) {
   return 'baseline'
 }
 
+function baselineSourceLabel(source) {
+  const key = text(source).trim().toLowerCase()
+  if (key === 'live_api') return 'Live API baseline'
+  if (key === 'reference_profile') return 'Reference dataset baseline'
+  if (key === 'demo_default') return 'Demo default baseline'
+  return key || 'Baseline context'
+}
+
+function baselineContextNote({ baselineSource, liveDataUsed, baselineTimestamp }) {
+  const sourceLabel = baselineSourceLabel(baselineSource)
+  const ts = text(baselineTimestamp)
+  if (liveDataUsed) {
+    return `Live observed baseline context from ${sourceLabel}${ts ? ` at ${ts}` : ''}.`
+  }
+  return `Non-live baseline context from ${sourceLabel}${ts ? ` at ${ts}` : ''}; treat absolute PM2.5 level as fallback/reference context, not a live observed snapshot.`
+}
+
 export function buildForecastExportRecord(result) {
   const meta = result?.meta || {}
   const baseline = result?.baseline || {}
@@ -127,6 +144,13 @@ export function buildForecastExportRecord(result) {
     run_persisted: Boolean(run.persisted),
     forecast_mode: text(meta.forecast_mode),
     baseline_source: text(meta.baseline_source),
+    baseline_source_label: baselineSourceLabel(meta.baseline_source),
+    baseline_timestamp: text(meta.baseline_timestamp),
+    baseline_context_note: baselineContextNote({
+      baselineSource: meta.baseline_source,
+      liveDataUsed: Boolean(meta.live_data_used),
+      baselineTimestamp: meta.baseline_timestamp,
+    }),
     live_data_used: Boolean(meta.live_data_used),
     overrides_applied: Boolean(meta.overrides_applied),
     mode_note: text(meta.mode_note),
@@ -245,8 +269,10 @@ function buildForecastReportHtml(result) {
     ['Generated at', row.generated_at],
     ['Exported at', row.export_timestamp_utc],
     ['Mode', row.forecast_mode],
-    ['Baseline source', row.baseline_source],
+    ['Baseline source', row.baseline_source_label || row.baseline_source],
+    ['Baseline timestamp', row.baseline_timestamp || 'N/A'],
     ['Live data used', String(row.live_data_used)],
+    ['Baseline context note', row.baseline_context_note || 'N/A'],
     ['Location', `${row.location_name || 'N/A'} (${row.location_lat || 'N/A'}, ${row.location_lon || 'N/A'})`],
     ['Scenario', scenarioDetail],
     ['Scenario intensity note', row.scenario_intensity_note || 'N/A'],
@@ -285,6 +311,7 @@ function buildForecastReportHtml(result) {
       th, td { border: 1px solid #e2e8f0; padding: 7px 8px; vertical-align: top; }
       th { background: #f8fafc; text-align: left; width: 32%; font-weight: 700; color: #1e293b; }
       .box { border: 1px solid #dbe3ea; border-radius: 10px; padding: 10px; background: #fff; font-size: 12px; color: #1e293b; line-height: 1.45; white-space: pre-wrap; }
+      .notice { border: 1px solid #fed7aa; border-radius: 10px; padding: 10px; background: #fff7ed; color: #9a3412; font-size: 12px; line-height: 1.45; margin-top: 12px; }
       @media print {
         body { margin: 11mm; }
         .grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
@@ -295,11 +322,12 @@ function buildForecastReportHtml(result) {
     <div class="header">
       <h1>SKYNET Forecast Result Export</h1>
       <p>Structured snapshot for reporting and review.</p>
+      ${row.live_data_used ? '' : `<div class="notice">${escapeHtml(row.baseline_context_note)}</div>`}
     </div>
 
     <div class="section-title">Key Forecast Metrics</div>
     <div class="grid">
-      ${metricCard('Current PM2.5', `${formatNum(row.baseline_pm25_now, 2)} µg/m³`, 'Current observed value')}
+      ${metricCard('Current PM2.5', `${formatNum(row.baseline_pm25_now, 2)} µg/m³`, row.live_data_used ? 'Current observed value' : 'Fallback/reference baseline value')}
       ${metricCard('Baseline Next-Hour PM2.5', `${formatNum(row.baseline_pred_pm25_t_plus_1, 2)} µg/m³`, 'Reference prediction')}
       ${metricCard('Scenario Next-Hour PM2.5', `${formatNum(row.scenario_pred_pm25_t_plus_1, 2)} µg/m³`, 'Scenario/custom prediction')}
     </div>

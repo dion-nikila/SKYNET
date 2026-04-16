@@ -37,14 +37,30 @@ FEATURE_LABELS = {
     "roll_diff_3_24": "Short vs daily PM2.5 trend",
     "roll_diff_24_168": "Daily vs weekly PM2.5 trend",
     "PM10": "PM10 concentration",
+    "PM10_lag1": "PM10 one hour ago",
+    "PM10_lag3": "PM10 three hours ago",
+    "PM10_roll3": "3-hour PM10 average",
+    "PM10_roll24": "24-hour PM10 average",
     "NO2": "NO2 concentration",
     "SO2": "SO2 concentration",
     "O3": "Ozone concentration",
     "CO": "Carbon monoxide concentration",
     "temperature": "Air temperature",
     "humidity": "Relative humidity",
+    "humidity_lag1": "Humidity one hour ago",
+    "humidity_roll3": "3-hour humidity average",
+    "humidity_roll24": "24-hour humidity average",
     "pressure": "Surface pressure",
+    "pressure_lag1": "Pressure one hour ago",
+    "pressure_roll3": "3-hour pressure average",
+    "pressure_roll24": "24-hour pressure average",
     "wind_speed": "Wind speed",
+    "wind_speed_lag1": "Wind speed one hour ago",
+    "wind_speed_roll3": "3-hour wind speed average",
+    "wind_speed_roll24": "24-hour wind speed average",
+    "int_windspeedlag1_pm10lag1": "Wind-speed x PM10 interaction (lag1)",
+    "int_humiditylag1_temperaturelag1": "Humidity x temperature interaction (lag1)",
+    "int_pressurelag1_windspeedlag1": "Pressure x wind-speed interaction (lag1)",
     "sin_hour": "Hour-of-day pattern",
     "cos_hour": "Hour-of-day pattern",
     "sin_day": "Day-of-week pattern",
@@ -83,7 +99,7 @@ class ModelRunner:
                     p = self.model_meta_path.parent / p
                 booster = xgb.Booster()
                 booster.load_model(str(p))
-                meta["model"] = booster
+                meta["model"] = self._configure_inference_model(booster)
 
             # One-time migration path: persist model as JSON and store path in metadata.
             if model is not None and not model_path:
@@ -100,14 +116,32 @@ class ModelRunner:
 
                         booster = xgb.Booster()
                         booster.load_model(str(json_path))
-                        meta["model"] = booster
+                        meta["model"] = self._configure_inference_model(booster)
                         meta["model_path"] = disk_meta["model_path"]
                 except Exception:
                     # Keep runtime resilient: fall back to the loaded model object.
                     pass
 
+            meta["model"] = self._configure_inference_model(meta.get("model"))
+
             self._meta = meta
         return self._meta
+
+    @staticmethod
+    def _configure_inference_model(model):
+        """
+        Keep inference deterministic and lightweight.
+        A single-thread setting avoids OpenMP/shared-memory issues in constrained
+        environments without changing model semantics.
+        """
+        if model is None:
+            return None
+        try:
+            if hasattr(model, "set_param"):
+                model.set_param({"nthread": 1})
+        except Exception:
+            pass
+        return model
 
     @staticmethod
     def _safe_float(v):
@@ -321,7 +355,13 @@ class ModelRunner:
 
         target_type = str(meta.get("target_type", "delta")).lower()
         log_target = bool(meta.get("log_target", False))
-        bias_correction = float(meta.get("bias_correction", 0.0))
+        bias_raw = meta.get("bias_correction", 0.0)
+        if isinstance(bias_raw, dict):
+            bias_correction = self._safe_float(bias_raw.get("value", 0.0))
+        else:
+            bias_correction = self._safe_float(bias_raw)
+        if np.isnan(bias_correction):
+            bias_correction = 0.0
         training_pm25_mean = self._safe_float(meta.get("training_pm25_mean", np.nan))
 
         current_pm25 = self._safe_float(current_pm25)

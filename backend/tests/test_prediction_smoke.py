@@ -964,6 +964,7 @@ class PredictionSmokeTests(unittest.TestCase):
             resp = routes.forecast_interactive(req)
             self.assertEqual(resp.meta.forecast_mode, "custom")
             self.assertEqual(resp.meta.baseline_source, "reference_profile")
+            self.assertEqual(resp.meta.baseline_timestamp, str(aq_cur["time"]))
             self.assertFalse(resp.meta.live_data_used)
             self.assertTrue(resp.meta.overrides_applied)
             self.assertEqual(resp.scenario.scenario_id, "custom_what_if")

@@ -82,7 +82,7 @@ export default function TopBar({ forecastMode, modelInfo, locationName = '' }) {
                 lineHeight: 1.38,
               }}
             >
-              One-hour-ahead PM2.5 decision-support forecasting with explainability, intervention simulation, and reliability diagnostics.
+              One-hour-ahead PM2.5 decision-support forecasting with explainability, bounded what-if exploration, and reliability diagnostics.
             </Typography>
           </Box>
         </Stack>

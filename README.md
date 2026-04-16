@@ -8,14 +8,15 @@ SKYNET is an interactive one-hour-ahead PM2.5 forecasting system with:
 ## Active runtime source of truth
 - `backend/app`
 - `frontend/src`
-- `model.py`
+- `model/xgb_final_model.py`
 - `model/xgb_haikou_model_meta.pkl`
 - `model/xgb_model.json`
 
 ## Dataset stage used by SKYNET
-- Training/reference profile source: `data/Airware-Haikou/2_filled_data/*.csv`
-- This project uses the interpolated filled dataset stage with a custom forecasting pipeline built on top.
-- SKYNET does **not** train directly from `1_row_data`.
+- Training/reference profile source: `data/processed/final_dataset/final.csv`
+- This project uses the finalized cleaned-raw curated dataset for locked-model training and reference fallback profiles.
+- Raw lineage/provenance bundles are optional and are not required for the active runtime or a lean deployment.
+- SKYNET does **not** train directly from raw `1_row_data` files at runtime.
 - SKYNET does **not** directly consume the pre-split `3_MTSAM` artifacts for runtime or training.
 
 ## Canonical scenario set
@@ -33,11 +34,13 @@ Legacy aliases are still accepted:
 
 ## Forecast modes
 - `live`: uses Open-Meteo live/history data.
-- `custom`: baseline-anchored what-if mode (never history-free).
+- `custom`: baseline-anchored bounded what-if model-space exploration (never history-free).
+
+Scenario outputs are model-behavior what-if simulations, not causal intervention estimates.
 
 Custom baseline fallback priority:
 1. recent cached/live context
-2. dataset-derived reference profile (`data/Airware-Haikou/2_filled_data/*.csv`)
+2. dataset-derived reference profile (`data/processed/final_dataset/final.csv`)
 3. demo default profile
 
 ## Demo-safe location policy
@@ -68,6 +71,10 @@ Copy from `frontend/.env.example` and set:
 - `VITE_API_TIMEOUT_MS` (optional, default `20000`)
 
 ## Local development run
+
+Dependency purpose:
+- `backend/requirements.txt`: backend API runtime dependencies.
+- `requirements.txt`: training/evaluation/support-script dependencies used outside the API runtime.
 
 ### 1) Backend
 ```bash
@@ -140,13 +147,14 @@ npm run preview
   - `model/xgb_haikou_model_meta.pkl`
   - `model/xgb_model.json`
 - Optional reference dataset for custom fallback profile:
-  - `data/Airware-Haikou/2_filled_data/*.csv`
+  - `data/processed/final_dataset/final.csv`
 - If dataset is missing, custom mode still works via live context or demo defaults.
 - SQLite logging on free hosts is ephemeral unless external persistence is added.
 - Run logging behavior:
   - If `SKYNET_ENABLE_RUN_LOGGING=0`, backend startup no longer depends on SQLite path writability.
 - Current shipped metadata artifact (`model/xgb_haikou_model_meta.pkl`) is used as runtime source-of-truth for:
-  - feature list/order, feature defaults, feature quantiles, global SHAP means, bias correction, test metrics, and native model path.
+  - feature list/order, feature defaults, feature quantiles, global SHAP means, bias correction, scored-subset historical test metrics, and native model path.
+- Historical test metrics in the shipped artifact are reported on the scored subset of chronological test rows after feature-availability filtering, not on every raw row in the test window.
 - Empirical uncertainty guidance can be derived from saved test residual traces in metadata (`plot_data.y_true/preds`) when available.
 - Provenance extras from newer training comments (for example `preprocessing` block or raw-row counters) may be absent in the current artifact unless it is regenerated.
 - Training code uses grouped temporal logic by unique timestamp for both hyperparameter CV and final early-stopping holdout validation (to avoid same-timestamp multi-station leakage across folds/splits). If the model artifact is not regenerated after methodology updates, deployed metrics/artifacts still reflect the previous training run.
@@ -180,7 +188,7 @@ npm run build
 Retrain and regenerate runtime artifacts:
 ```bash
 source .venv/bin/activate
-python model.py
+python model/xgb_final_model.py
 ```
 
 Check artifact lineage fields:
@@ -202,6 +210,7 @@ python backend/scripts/validate_scenarios.py --samples 120 --seed 42 --out-dir b
 - `backend/skynet_runs.db` is local runtime state and should not be committed.
 - Scenario validation/inspection outputs under `backend/scripts/validation_artifacts*` and `backend/scripts/artifacts*` are generated artifacts; keep only the outputs you intentionally want as evidence snapshots.
 - Model backup files like `model/*.bak_*` are local safeguards and should not be committed as active runtime artifacts.
+- Non-runtime materials such as local archive bundles or report extracts are optional and are not part of the active runtime path.
 
 ## Preprocessing decisions (for report/viva)
 
@@ -213,9 +222,10 @@ python backend/scripts/validate_scenarios.py --samples 120 --seed 42 --out-dir b
   - Health diagnostics now flag current exogenous values that sit outside training `q01-q99` bounds.
 - **Operational history window:** Runtime default is `72h` (`history_hours_target=72`).
 - **Weekly-feature imputation disclosure:** The model includes weekly lag-derived features (for example `lag168`, `trend_168`). When available history is `<168h`, those features are explicitly imputed from trained defaults; imputation is tracked in health diagnostics as heuristic reliability context.
-- **Dataset-stage caution:** SKYNET runtime/training uses `2_filled_data` (interpolated/filled stage), not raw `1_row_data` and not direct `3_MTSAM` artifacts.
-- **Unit mapping rationale:** For `CO`, `pressure`, and `wind_speed`, runtime mapping is inferred from observed `2_filled_data` ranges and validated against model metadata quantiles.
+- **Dataset-stage caution:** SKYNET runtime/training uses `data/processed/final_dataset/final.csv` as the active final dataset.
+- **Unit mapping rationale:** For `CO`, `pressure`, and `wind_speed`, runtime mapping is validated against active model metadata quantiles from the final locked artifact.
 - **Scenario interpretation caution:** Scenario templates encode directional intent only; realized effects are context-dependent and are not guaranteed monotonic for every sample.
+- **Causality caution:** Local explanations and scenario outputs describe model behavior in feature space; they do not establish real-world causal mechanisms or intervention effects.
 - **Reliability interpretation caution:** Health quality/reliability is a heuristic diagnostic signal, not a calibrated probability of correctness.
 - **Uncertainty interpretation caution:** Runtime uncertainty bands are empirical residual ranges from historical Haikou test behavior; they are decision-support ranges, not probabilistic guarantees.
 - **Live unit normalization:** Open-Meteo live/history values are converted before feature build:
@@ -223,21 +233,16 @@ python backend/scripts/validate_scenarios.py --samples 120 --seed 42 --out-dir b
   - `surface_pressure` `hPa` -> model `pressure` kPa-equivalent
   - `wind_speed_10m` `km/h` -> model `wind_speed` m/s-equivalent
 - **Custom pressure input contract:** UI/API keeps pressure input in human-readable `hPa` (850-1100), then backend converts to model pressure representation internally.
-- **Malformed row handling:** one malformed trailing row in `2_filled_data/4.csv` is safely ignored by datetime validation (`errors='coerce'` + drop invalid rows), so training and summary scripts remain robust without changing source dataset files.
+- **Malformed row handling:** malformed timestamp rows are ignored by datetime validation (`errors='coerce'` + drop invalid rows), so training and summary scripts remain robust.
 
 ## Reliability + uncertainty methodology note
 - Reliability guidance is a weighted heuristic composite built from: data completeness, domain plausibility, imputation burden, fallback severity, scenario validity, and explainability integrity.
 - Reliability outputs are intended for run-quality interpretation, not statistical confidence.
 - Uncertainty guidance uses empirical residual quantiles from historical Haikou test traces (when metadata supports it), then widens scenario bands based on reliability and scenario mode.
-- For report/viva wording, reference `docs/reliability_guidance_methodology.md`.
+- Keep report/viva wording aligned with the runtime reliability and uncertainty notes above.
 
 ## Usability evidence scaffold
-- SKYNET includes lightweight, non-fabricated usability-evaluation materials:
-  - `docs/usability_protocol.md`
-  - `docs/usability_tasks_template.csv`
-  - `docs/usability_survey_template.csv`
-  - `docs/usability_findings_template.md`
-- These assets support structured pilot evaluation without claiming completed study results.
+- Keep usability evidence files/versioning in sync with your current submission package.
 
 ## Export
 - `Export CSV`: one-row structured export for reporting.

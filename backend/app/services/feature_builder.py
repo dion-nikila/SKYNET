@@ -19,6 +19,13 @@ AUX_COLS = [
     "wind_speed",
 ]
 
+EXOGENOUS_LAGROLL_COLS = ["PM10", "humidity", "wind_speed", "pressure"]
+INTERACTION_FEATURE_RECIPES = {
+    "int_windspeedlag1_pm10lag1": ("wind_speed_lag1", "PM10_lag1"),
+    "int_humiditylag1_temperaturelag1": ("humidity_lag1", "temperature_lag1"),
+    "int_pressurelag1_windspeedlag1": ("pressure_lag1", "wind_speed_lag1"),
+}
+
 
 @dataclass
 class FeatureBuildResult:
@@ -60,6 +67,14 @@ class FeatureBuilder:
         if name in feat_defaults and pd.notna(feat_defaults[name]):
             return float(feat_defaults[name])
 
+        # Exogenous lag/rolling fallback should remain in the same feature domain.
+        if "_" in str(name):
+            base_feature = str(name).split("_", 1)[0]
+            if base_feature in AUX_COLS:
+                if base_feature in feat_defaults and pd.notna(feat_defaults[base_feature]):
+                    return float(feat_defaults[base_feature])
+                return 0.0
+
         if name.startswith("std"):
             return 0.0
 
@@ -68,6 +83,11 @@ class FeatureBuilder:
 
         if name in ("min24", "max24", "trend_24", "trend_168", "roll_diff_3_24", "roll_diff_24_168"):
             return float(base_lag1) if pd.notna(base_lag1) else 0.0
+
+        if name in AUX_COLS:
+            if name in feat_defaults and pd.notna(feat_defaults[name]):
+                return float(feat_defaults[name])
+            return 0.0
 
         return 0.0
 
@@ -89,39 +109,53 @@ class FeatureBuilder:
         feats: List[str] = list(meta.get("features", []))
         feat_defaults = meta.get("feature_defaults", {})
 
-        ts = pd.to_datetime(aq_cur.get("time"))
+        ts = pd.to_datetime(aq_cur.get("time"), errors="coerce")
+        if pd.isna(ts) and not history_df.empty:
+            ts = pd.to_datetime(history_df.index.max(), errors="coerce")
+        if pd.isna(ts):
+            ts = pd.Timestamp.utcnow().floor("h")
         pred_ts = ts + pd.Timedelta(hours=1)
 
         current_pm25 = self._safe_float(aq_cur.get("pm2_5", np.nan))
 
-        pm_history = history_df["PM2.5"].copy() if "PM2.5" in history_df.columns else pd.Series(dtype=float)
+        history = history_df.copy()
+        if not history.empty:
+            history.index = pd.to_datetime(history.index, errors="coerce")
+            history = history[history.index.notna()].copy()
+            history = history.sort_index()
+            history = history[~history.index.duplicated(keep="last")]
+
+        idx = pd.DatetimeIndex([])
+        if not history.empty:
+            idx = idx.append(pd.DatetimeIndex(history.index))
+        idx = idx.append(pd.DatetimeIndex([ts, pred_ts])).unique().sort_values()
+        tmp = pd.DataFrame(index=idx)
+
+        if "PM2.5" in history.columns:
+            tmp["PM2.5"] = pd.to_numeric(history["PM2.5"], errors="coerce").reindex(tmp.index)
+        else:
+            tmp["PM2.5"] = np.nan
         if pd.notna(current_pm25):
-            pm_history.loc[ts] = current_pm25
-
-        s = pm_history.sort_index()
-        s = s[~s.index.duplicated(keep="last")]
-        s = s.dropna().astype(float)
-
-        tmp = pd.DataFrame(index=s.index)
-        tmp["PM2.5"] = s
+            tmp.loc[ts, "PM2.5"] = float(current_pm25)
         tmp.loc[pred_ts, "PM2.5"] = np.nan
-        tmp = tmp.sort_index()
-        pm = tmp["PM2.5"]
+        pm = tmp["PM2.5"].astype(float)
+        s = pm.dropna()
 
         for lag in [1, 3, 6, 12, 24, 48, 72, 168]:
             tmp[f"lag{lag}"] = pm.shift(lag)
 
         pm_past = pm.shift(1)
-        tmp["roll3"] = pm_past.rolling(3, min_periods=1).mean()
-        tmp["roll6"] = pm_past.rolling(6, min_periods=1).mean()
-        tmp["roll24"] = pm_past.rolling(24, min_periods=1).mean()
-        tmp["roll48"] = pm_past.rolling(48, min_periods=1).mean()
-        tmp["roll168"] = pm_past.rolling(168, min_periods=1).mean()
+        # Match training semantics (default min_periods=window).
+        tmp["roll3"] = pm_past.rolling(3).mean()
+        tmp["roll6"] = pm_past.rolling(6).mean()
+        tmp["roll24"] = pm_past.rolling(24).mean()
+        tmp["roll48"] = pm_past.rolling(48).mean()
+        tmp["roll168"] = pm_past.rolling(168).mean()
 
-        tmp["std6"] = pm_past.rolling(6, min_periods=2).std()
-        tmp["std24"] = pm_past.rolling(24, min_periods=2).std()
-        tmp["min24"] = pm_past.rolling(24, min_periods=1).min()
-        tmp["max24"] = pm_past.rolling(24, min_periods=1).max()
+        tmp["std6"] = pm_past.rolling(6).std()
+        tmp["std24"] = pm_past.rolling(24).std()
+        tmp["min24"] = pm_past.rolling(24).min()
+        tmp["max24"] = pm_past.rolling(24).max()
 
         tmp["ewm6"] = pm_past.ewm(span=6, adjust=False).mean()
         tmp["ewm24"] = pm_past.ewm(span=24, adjust=False).mean()
@@ -149,8 +183,38 @@ class FeatureBuilder:
             "wind_speed": w_cur.get("wind_speed_10m", np.nan),
         }
 
+        # Add exogenous history + current values so lag/rolling exogenous features
+        # are computed with the same past-only semantics as training.
         for c in AUX_COLS:
-            tmp.loc[pred_ts, c] = self._safe_float(current_aux.get(c, np.nan))
+            if c in history.columns:
+                tmp[c] = pd.to_numeric(history[c], errors="coerce").reindex(tmp.index)
+            else:
+                tmp[c] = np.nan
+
+        for c in AUX_COLS:
+            current_value = self._safe_float(current_aux.get(c, np.nan))
+            if pd.notna(current_value):
+                tmp.loc[ts, c] = float(current_value)
+                tmp.loc[pred_ts, c] = float(current_value)
+            else:
+                tmp.loc[pred_ts, c] = np.nan
+
+        for col in EXOGENOUS_LAGROLL_COLS:
+            s_col = pd.to_numeric(tmp[col], errors="coerce")
+            s_past = s_col.shift(1)
+            tmp[f"{col}_lag1"] = s_past
+            tmp[f"{col}_roll3"] = s_past.rolling(3).mean()
+            tmp[f"{col}_roll24"] = s_past.rolling(24).mean()
+        if "PM10" in tmp.columns:
+            tmp["PM10_lag3"] = pd.to_numeric(tmp["PM10"], errors="coerce").shift(3)
+        if "temperature" in tmp.columns:
+            tmp["temperature_lag1"] = pd.to_numeric(tmp["temperature"], errors="coerce").shift(1)
+
+        # Keep backward compatibility with any metadata that includes lagged interactions.
+        for interaction_feature, (left_col, right_col) in INTERACTION_FEATURE_RECIPES.items():
+            left = pd.to_numeric(tmp.get(left_col, np.nan), errors="coerce")
+            right = pd.to_numeric(tmp.get(right_col, np.nan), errors="coerce")
+            tmp[interaction_feature] = left * right
 
         extreme_current_events: List[Dict] = []
         for feature in AUX_COLS:
@@ -182,8 +246,49 @@ class FeatureBuilder:
                     }
                 )
 
+        pm25_bounds = self._quantile_bounds(meta=meta, feature="lag1")
+        if pd.notna(current_pm25):
+            q01 = q99 = np.nan
+            if pm25_bounds is not None:
+                q01, q99 = pm25_bounds
+            if float(current_pm25) == 0.0:
+                extreme_current_events.append(
+                    {
+                        "feature": "PM2.5_current",
+                        "value": float(current_pm25),
+                        "q01": float(q01) if np.isfinite(q01) else np.nan,
+                        "q99": float(q99) if np.isfinite(q99) else np.nan,
+                        "side": "suspicious_zero",
+                    }
+                )
+            elif pm25_bounds is not None:
+                if current_pm25 < q01:
+                    extreme_current_events.append(
+                        {
+                            "feature": "PM2.5_current",
+                            "value": float(current_pm25),
+                            "q01": float(q01),
+                            "q99": float(q99),
+                            "side": "below_q01",
+                        }
+                    )
+                elif current_pm25 > q99:
+                    extreme_current_events.append(
+                        {
+                            "feature": "PM2.5_current",
+                            "value": float(current_pm25),
+                            "q01": float(q01),
+                            "q99": float(q99),
+                            "side": "above_q99",
+                        }
+                    )
+
         feat_row = tmp.loc[pred_ts]
         base_lag1 = self._safe_float(feat_row.get("lag1", np.nan))
+        if pd.isna(base_lag1):
+            base_lag1 = self._safe_float(current_pm25)
+        if pd.isna(base_lag1) and not s.empty:
+            base_lag1 = self._safe_float(s.iloc[-1])
 
         x_row = {}
         imputed = 0

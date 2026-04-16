@@ -158,3 +158,38 @@ test('export semantics separate manual custom, guided intervention, and macro ru
   assert.equal(macro.scenario_intensity, 73)
   assert.equal(macro.scenario_intensity_note, '')
 })
+
+test('export record preserves fallback source and baseline timestamp honesty', () => {
+  const row = buildForecastExportRecord({
+    meta: {
+      generated_at: '2026-03-20T10:30:00Z',
+      forecast_mode: 'custom',
+      baseline_source: 'reference_profile',
+      baseline_timestamp: '2023-08-17T08:00:00+00:00',
+      live_data_used: false,
+      overrides_applied: true,
+    },
+    baseline: {
+      inputs_snapshot: { pm25_current: 18.4 },
+      prediction: { pm25_t_plus_1: 22.1, delta_pm25_t_plus_1: 3.7 },
+      shap: {},
+    },
+    scenario: {
+      scenario_id: 'custom_what_if',
+      scenario_mode: 'manual_custom',
+      intensity: 0,
+      prediction: { pm25_t_plus_1: 25.4, delta_pm25_t_plus_1: 7.0 },
+      applied_overrides: [],
+    },
+    delta: { pm25_change: 3.3, delta_shap: {} },
+    health: { quality_score: 0.62, quality_label: 'moderate reliability guidance', history: {}, imputation: {}, fallback: {}, ood: {} },
+    run: { persisted: false },
+  })
+
+  assert.equal(row.baseline_source, 'reference_profile')
+  assert.equal(row.baseline_source_label, 'Reference dataset baseline')
+  assert.equal(row.baseline_timestamp, '2023-08-17T08:00:00+00:00')
+  assert.equal(row.live_data_used, false)
+  assert.match(row.baseline_context_note, /non-live baseline context/i)
+  assert.match(row.baseline_context_note, /2023-08-17T08:00:00\+00:00/)
+})

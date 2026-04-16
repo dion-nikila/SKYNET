@@ -18,7 +18,8 @@ RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 # - carbon_monoxide: ug/m^3
 # - surface_pressure: hPa
 # - wind_speed_10m: km/h (default)
-# SKYNET model features were trained on the 2_filled_data representation where
+# SKYNET model features in the current final pipeline (trained from
+# data/processed/final_dataset/final.csv) use the following effective units:
 # these effectively appear as:
 # - CO: mg/m^3-equivalent
 # - pressure: kPa-equivalent

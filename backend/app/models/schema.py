@@ -324,6 +324,7 @@ class ResponseMeta(BaseModel):
     forecast_mode: Literal["live", "custom"] = "live"
     custom_impact_mode: Optional[Literal["conservative", "stronger_realistic"]] = None
     baseline_source: str = "live_api"
+    baseline_timestamp: Optional[str] = None
     live_data_used: bool = True
     overrides_applied: bool = False
     mode_note: Optional[str] = None

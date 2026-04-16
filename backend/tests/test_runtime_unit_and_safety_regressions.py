@@ -213,6 +213,43 @@ class RuntimeUnitAndSafetyRegressionTests(unittest.TestCase):
         self.assertIsNone(w_cur.get("surface_pressure"))
         self.assertIsNone(w_cur.get("wind_speed_10m"))
 
+    def test_feature_builder_flags_pm25_current_zero_and_tail_events(self):
+        ts = datetime.now(timezone.utc).replace(minute=0, second=0, microsecond=0)
+        idx = pd.date_range(end=ts - timedelta(hours=1), periods=12, freq="h")
+        history_df = pd.DataFrame({"PM2.5": np.linspace(12.0, 22.0, len(idx))}, index=idx)
+        meta = {
+            "features": ["lag1"],
+            "feature_defaults": {},
+            "feature_quantiles": {"lag1": {"q01": 8.0, "q99": 25.0}},
+        }
+        builder = FeatureBuilder()
+
+        zero_feat = builder.build(
+            meta=meta,
+            history_df=history_df,
+            aq_cur={"time": ts.isoformat(), "pm2_5": 0.0},
+            w_cur={},
+        )
+        self.assertTrue(
+            any(
+                evt.get("feature") == "PM2.5_current" and evt.get("side") == "suspicious_zero"
+                for evt in zero_feat.extreme_current_events
+            )
+        )
+
+        high_feat = builder.build(
+            meta=meta,
+            history_df=history_df,
+            aq_cur={"time": ts.isoformat(), "pm2_5": 40.0},
+            w_cur={},
+        )
+        self.assertTrue(
+            any(
+                evt.get("feature") == "PM2.5_current" and evt.get("side") == "above_q99"
+                for evt in high_feat.extreme_current_events
+            )
+        )
+
     def test_custom_pressure_override_hpa_converts_before_scenario_engine(self):
         overrides_model, pressure_converted = routes._normalize_custom_overrides_for_model({"pressure": 1013.0})
         self.assertTrue(pressure_converted)

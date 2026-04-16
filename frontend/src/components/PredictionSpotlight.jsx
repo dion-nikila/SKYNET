@@ -87,6 +87,21 @@ function deltaTone(delta) {
   return '#3d5c71'
 }
 
+function baselineSourceLabel(source) {
+  const key = String(source || '').trim().toLowerCase()
+  if (key === 'live_api') return 'Live API baseline'
+  if (key === 'reference_profile') return 'Reference dataset baseline'
+  if (key === 'demo_default') return 'Demo default baseline'
+  return key || 'Baseline context'
+}
+
+function currentPm25Subtitle({ liveUsed, baselineSource }) {
+  if (liveUsed) return 'Observed concentration now'
+  if (String(baselineSource || '').toLowerCase() === 'reference_profile') return 'Reference baseline concentration'
+  if (String(baselineSource || '').toLowerCase() === 'demo_default') return 'Demo baseline concentration'
+  return 'Fallback baseline concentration'
+}
+
 function softChipSx(kind) {
   if (kind === 'info') {
     return { backgroundColor: 'rgba(219,242,255,0.16)', color: '#dcf4ff', border: '1px solid rgba(219,242,255,0.28)' }
@@ -206,7 +221,12 @@ export default function PredictionSpotlight({
   const currentLevel = pm25LevelInfo(currentPm25)
   const baselineLevel = pm25LevelInfo(baseline)
   const scenarioLevel = pm25LevelInfo(scenario)
-  const referenceTime = formatWhen(data?.meta?.generated_at)
+  const generatedTime = formatWhen(data?.meta?.generated_at)
+  const baselineSource = String(data?.meta?.baseline_source || 'live_api')
+  const liveUsed = Boolean(data?.meta?.live_data_used)
+  const baselineTimestamp = formatWhen(data?.meta?.baseline_timestamp || data?.meta?.generated_at)
+  const baselineSourceText = baselineSourceLabel(baselineSource)
+  const currentSubtitle = currentPm25Subtitle({ liveUsed, baselineSource })
   const scenarioTitle = prettyScenario(data?.scenario?.scenario_id)
   const scenarioIntensity = num(data?.scenario?.intensity)
   const forecastMode = String(data?.meta?.forecast_mode || '')
@@ -227,6 +247,8 @@ export default function PredictionSpotlight({
     Number.isFinite(Number(metrics?.rmse)) ? `RMSE ${Number(metrics.rmse).toFixed(3)}` : null,
     Number.isFinite(Number(metrics?.r2)) ? `R² ${Number(metrics.r2).toFixed(3)}` : null,
   ].filter(Boolean).join(' · ')
+  const uncertaintyAvailable = Boolean(data?.health?.uncertainty?.available)
+  const uncertaintyNote = String(data?.health?.uncertainty?.note || '').trim()
 
   return (
     <Box
@@ -361,6 +383,31 @@ export default function PredictionSpotlight({
           </Box>
         )}
 
+        <Box
+          sx={{
+            mb: 1.2,
+            px: 1.05,
+            py: 0.9,
+            borderRadius: 1,
+            border: `1px solid ${sk.divider}`,
+            background: liveUsed
+              ? 'rgba(248,252,255,0.92)'
+              : 'linear-gradient(180deg, rgba(255,246,228,0.92) 0%, rgba(255,255,255,0.98) 100%)',
+          }}
+        >
+          <Typography variant="caption" sx={{ fontWeight: 800, color: '#244f68', letterSpacing: '0.03em' }}>
+            Baseline context
+          </Typography>
+          <Typography variant="body2" sx={{ mt: 0.35, color: '#2f556f', lineHeight: 1.44 }}>
+            Source: <strong>{baselineSourceText}</strong>. Actual baseline timestamp: <strong>{baselineTimestamp}</strong>.
+          </Typography>
+          {!liveUsed ? (
+            <Typography variant="caption" sx={{ display: 'block', mt: 0.35, color: '#7a4a17', lineHeight: 1.42, fontWeight: 700 }}>
+              Non-live caution: current PM2.5 and baseline context for this run are fallback/reference values, not live observed conditions.
+            </Typography>
+          ) : null}
+        </Box>
+
         <Grid container spacing={0}>
           <Grid item xs={12}>
             <Box
@@ -376,7 +423,7 @@ export default function PredictionSpotlight({
               <MetricCell
                 label="Current PM2.5"
                 value={currentPm25}
-                subtitle="Observed concentration now"
+                subtitle={currentSubtitle}
                 statusLabel={`${currentLevel.audienceLabel} (${currentLevel.band})`}
                 statusTone={currentLevel.tone}
                 statusNote={currentLevel.note}
@@ -427,7 +474,7 @@ export default function PredictionSpotlight({
             Plain-language interpretation
           </Typography>
           <Typography variant="caption" sx={{ display: 'block', mt: 0.42, color: '#2f556f', lineHeight: 1.44 }}>
-            Current air quality is <strong>{currentLevel.audienceLabel.toLowerCase()}</strong> ({currentLevel.rangeNote}). The next-hour baseline forecast indicates <strong>{baselineLevel.audienceLabel.toLowerCase()}</strong> ({baselineLevel.rangeNote}).
+            {liveUsed ? 'Current air quality is' : 'Current baseline context indicates'} <strong>{currentLevel.audienceLabel.toLowerCase()}</strong> ({currentLevel.rangeNote}). The next-hour baseline forecast indicates <strong>{baselineLevel.audienceLabel.toLowerCase()}</strong> ({baselineLevel.rangeNote}).
             {hasScenario
               ? ` Under the selected scenario, the next-hour level is ${scenarioLevel.audienceLabel.toLowerCase()} (${scenarioLevel.rangeNote}).`
               : ''}
@@ -464,17 +511,25 @@ export default function PredictionSpotlight({
 
         <Stack spacing={0.65} sx={{ mt: 1.35 }}>
           <Typography variant="caption" sx={{ color: sk.ink.muted, lineHeight: 1.45 }}>
-            Reference updated: {referenceTime}
+            Run generated: {generatedTime}
+          </Typography>
+          <Typography variant="caption" sx={{ color: sk.ink.muted, lineHeight: 1.45 }}>
+            Baseline context time: {baselineTimestamp} · source: {baselineSourceText}
           </Typography>
           {hasMetrics ? (
             <Typography variant="caption" sx={{ color: sk.ink.muted, lineHeight: 1.45 }}>
-              Historical model performance: {metricText}. These values summarize past test behavior and are not run-specific error guarantees.
+              Historical model performance: {metricText}. These values summarize the scored subset of past chronological test rows after feature-availability filtering, and are not run-specific error guarantees.
             </Typography>
           ) : null}
           {Array.isArray(data?.health?.uncertainty?.baseline_bands) && data.health.uncertainty.baseline_bands.length ? (
             <Typography variant="caption" sx={{ color: sk.ink.muted, lineHeight: 1.45 }}>
               Empirical uncertainty guidance: baseline {data.health.uncertainty.baseline_bands[0].coverage_pct}% residual band {' '}
               [{Number(data.health.uncertainty.baseline_bands[0].lower).toFixed(1)}, {Number(data.health.uncertainty.baseline_bands[0].upper).toFixed(1)}] µg/m³.
+            </Typography>
+          ) : null}
+          {!uncertaintyAvailable && uncertaintyNote ? (
+            <Typography variant="caption" sx={{ color: '#7a4a17', lineHeight: 1.45, fontWeight: 700 }}>
+              Uncertainty status: {uncertaintyNote}
             </Typography>
           ) : null}
           <Typography variant="caption" sx={{ color: sk.ink.muted, lineHeight: 1.45, pt: 0.25 }}>
