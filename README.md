@@ -8,9 +8,10 @@ SKYNET is a one-hour-ahead PM2.5 forecasting system.
 
 ## Run Locally
 
+From the extracted project folder, open a terminal in the repo root.
+
 ### Backend
 ```bash
-cd /Users/dionnikila/Desktop/SKYNET-IPD-01
 python -m venv .venv
 source .venv/bin/activate
 pip install -r backend/requirements.txt
@@ -19,7 +20,7 @@ uvicorn backend.app.main:app --reload --host 0.0.0.0 --port 8000
 
 ### Frontend
 ```bash
-cd /Users/dionnikila/Desktop/SKYNET-IPD-01/frontend
+cd frontend
 cp .env.example .env
 npm install
 npm run dev
