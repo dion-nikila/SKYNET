@@ -119,7 +119,7 @@ class ModelRunner:
                         meta["model"] = self._configure_inference_model(booster)
                         meta["model_path"] = disk_meta["model_path"]
                 except Exception:
-                    # Keep runtime resilient: fall back to the loaded model object.
+                    # Keep runtime resilient, fall back to the loaded model object.
                     pass
 
             meta["model"] = self._configure_inference_model(meta.get("model"))
